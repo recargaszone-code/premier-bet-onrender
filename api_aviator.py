@@ -8,7 +8,6 @@ import requests
 from flask import Flask, jsonify
 
 import undetected_chromedriver as uc
-from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -64,7 +63,7 @@ def iniciar_scraper():
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando undetected Chrome...")
+            enviar_telegram("🟢 Iniciando undetected Chrome v145...")
 
             options = uc.ChromeOptions()
             options.add_argument("--headless=new")
@@ -75,7 +74,9 @@ def iniciar_scraper():
             options.add_argument("--window-size=1920,1080")
             options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36")
 
+            # LINHA QUE VOCÊ PEDIU:
             driver = uc.Chrome(version_main=145, options=options)
+
             wait = WebDriverWait(driver, 45)
 
             driver.get(URL)
@@ -206,7 +207,7 @@ def get_last():
 
 @app.route("/")
 def home():
-    return "✅ Scraper Aviator UC rodando firme!"
+    return "✅ Scraper Aviator UC v145 rodando firme!"
 
 # ========================= START =========================
 if __name__ == "__main__":
