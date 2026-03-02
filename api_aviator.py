@@ -1,173 +1,157 @@
-from flask import Flask, jsonify
-import threading
-import time
-import re
-import random
-import requests
 import os
-
-import undetected_chromedriver as uc
+import time
+import traceback
+import requests
+from flask import Flask, jsonify
+from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.options import Options
 
-# ================= CONFIG =================
+app = Flask(__name__)
+
+# =========================
+# CREDENCIAIS ANTIGAS (TESTE)
+# =========================
+TELEGRAM_TOKEN = "8742776802:AAHSzD1qTwCqMEOdoW9_pT2l5GfmMBWUZQY"
+TELEGRAM_CHAT_ID = "7427648935"
+
 LOGIN = "857789345"
 PASSWORD = "max123ZICO"
 
-TELEGRAM_BOT_TOKEN = "8742776802:AAHSzD1qTwCqMEOdoW9_pT2l5GfmMBWUZQY"
-TELEGRAM_CHAT_ID = "7427648935"
-
 URL = "https://www.premierbet.co.mz/virtuals/game/aviator-291195"
 
-# =========================================
-
-app = Flask(__name__)
 historico = []
-driver = None
 
-# ================= TELEGRAM =================
+# =========================
+# TELEGRAM
+# =========================
 def enviar_telegram(msg):
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        payload = {
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": msg,
-            "parse_mode": "Markdown"
-        }
-        requests.post(url, data=payload, timeout=10)
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+            data={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode":"Markdown"}
+        )
+    except:
+        pass
+
+def enviar_print(driver, legenda="📸 Screenshot"):
+    try:
+        path = "/tmp/print.png"
+        driver.save_screenshot(path)
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
+            files={"photo": open(path, "rb")},
+            data={"chat_id": TELEGRAM_CHAT_ID, "caption": legenda}
+        )
     except Exception as e:
-        print("Erro Telegram:", e)
+        enviar_telegram(f"❌ Erro ao enviar print: {e}")
 
-# ================= CHROME DRIVER =================
-def criar_driver():
-    options = uc.ChromeOptions()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--remote-debugging-port=9222")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--window-size=1366,768")
-    options.binary_location = "/usr/bin/google-chrome"
-
-    return uc.Chrome(options=options)
-
-# ================= SCRAPER =================
+# =========================
+# SCRAPER
+# =========================
 def iniciar_scraper():
-    global driver, historico
+    global historico
 
     while True:
+        driver = None
         try:
             enviar_telegram("🟢 Iniciando navegador Chrome headless...")
-            driver = criar_driver()
-            wait = WebDriverWait(driver, 60)
 
-            enviar_telegram("🌐 Abrindo página do Aviator...")
+            chrome_options = Options()
+            chrome_options.add_argument("--headless=new")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1920,1080")
+
+            driver = webdriver.Chrome(options=chrome_options)
             driver.get(URL)
+            enviar_telegram("🌐 Página aberta!")
             time.sleep(15)
+            enviar_print(driver, "📸 Página carregada")
 
-            # ================= LOGIN =================
+            # LOGIN
             try:
-                enviar_telegram("🔑 Tentando login...")
-                login_input = wait.until(EC.element_to_be_clickable((By.NAME, "login")))
+                login_input = driver.find_element(By.NAME, "login")
                 login_input.clear()
                 login_input.send_keys(LOGIN)
 
-                pwd = wait.until(EC.element_to_be_clickable((By.NAME, "password")))
-                pwd.clear()
-                pwd.send_keys(PASSWORD)
+                pwd_input = driver.find_element(By.NAME, "password")
+                pwd_input.clear()
+                pwd_input.send_keys(PASSWORD)
 
-                btn = wait.until(EC.element_to_be_clickable(
-                    (By.CSS_SELECTOR, "button.form-button.form-button--primary")
-                ))
+                btn = driver.find_element(By.CSS_SELECTOR, "button.form-button.form-button--primary")
                 btn.click()
-                enviar_telegram("✅ Login enviado, aguardando carregamento do jogo...")
+                enviar_telegram("✅ Login enviado!")
                 time.sleep(25)
-            except Exception as e:
-                enviar_telegram(f"⚠️ Login não necessário ou erro: {e}")
-                time.sleep(20)
+            except:
+                enviar_telegram("⚠️ Login não necessário ou falhou!")
 
-            # ================= IFRAME =================
-            enviar_telegram("🖼 Procurando iframe do jogo...")
-            iframe = wait.until(EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "iframe.casino-game-launch-iframe__frame")
-            ))
-            driver.switch_to.frame(iframe)
-            enviar_telegram("✅ Iframe conectado, scraper ativo!")
+            # IFRAME
+            iframes = driver.find_elements(By.TAG_NAME, "iframe")
+            enviar_telegram(f"🎯 Iframes encontrados: {len(iframes)}")
+            if len(iframes) == 0:
+                raise Exception("Nenhum iframe encontrado")
+            driver.switch_to.frame(iframes[-1])
+            enviar_telegram("✅ Entrou no iframe do Aviator")
+            time.sleep(10)
+            enviar_print(driver, "🎮 Dentro do iframe")
 
+            # LOOP HISTÓRICO
             ultimo_enviado = None
-
             while True:
-                try:
-                    items_wrapper = WebDriverWait(driver, 15).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "div._itemsWrapper_7l84e_35"))
-                    )
+                elementos = driver.find_elements(By.CSS_SELECTOR, "div._itemsWrapper_7l84e_35 span._container_1p5jb_1")
+                novos = []
+                for el in elementos:
+                    txt = el.text.replace("x","").strip()
+                    if txt:
+                        try:
+                            novos.append(float(txt))
+                        except:
+                            continue
 
-                    buttons = items_wrapper.find_elements(
-                        By.CSS_SELECTOR,
-                        "button._container_12jzl_1 span._container_1p5jb_1"
-                    )
+                if novos and novos != historico:
+                    historico = novos[:50]
+                    enviar_telegram(f"📊 Histórico atualizado (últimos 10): {historico[:10]}")
+                    enviar_print(driver, "📸 Histórico atualizado")
 
-                    novos = []
-                    for span in buttons:
-                        txt = span.text.strip()
-                        if txt:
-                            match = re.search(r'(\d+\.?\d*)', txt)
-                            if match:
-                                novos.append(float(match.group(1)))
-
-                    if novos:
-                        historico = novos
-                        ultimo = historico[-1]
-
-                        enviar_telegram(f"📊 Histórico atualizado (últimos 10): {', '.join(f'{v:.2f}' for v in historico[-10:])}\nÚltimo multiplicador: {ultimo:.2f}x")
-
-                        if ultimo_enviado != ultimo:
-                            ultimo_enviado = ultimo
-
-                except Exception as e:
-                    enviar_telegram(f"❌ Erro no loop scraping: {e}\nTentando reiniciar iframe...")
-                    break
-
-                time.sleep(random.uniform(6, 10))
+                time.sleep(6)
 
         except Exception as e:
-            enviar_telegram(f"🔥 Erro geral do scraper: {e}\nReiniciando driver...")
+            erro = traceback.format_exc()
+            enviar_telegram(f"🔥 ERRO NO SCRAPER:\n{erro}")
+            time.sleep(10)
+
         finally:
-            if driver:
-                try:
-                    driver.quit()
-                except:
-                    pass
-            time.sleep(5)
+            try:
+                driver.quit()
+            except:
+                pass
+            enviar_telegram("🔄 Reiniciando scraper em 10s...")
+            time.sleep(10)
 
-# ================= API =================
-@app.route("/api/history", methods=["GET"])
+# =========================
+# API
+# =========================
+@app.route("/api/history")
 def get_history():
-    return jsonify({
-        "history": historico[-50:],
-        "last": historico[-1] if historico else None,
-        "total": len(historico)
-    })
+    return jsonify(historico)
 
-@app.route("/api/last", methods=["GET"])
+@app.route("/api/last")
 def get_last():
-    return jsonify({
-        "last": historico[-1] if historico else None
-    })
+    return jsonify(historico[-1] if historico else None)
 
-@app.route("/api/full", methods=["GET"])
-def get_full():
-    return jsonify({
-        "history": historico
-    })
+@app.route("/")
+def home():
+    return "Scraper Aviator rodando!"
 
-# ================= MAIN =================
+# =========================
+# THREAD SCRAPER
+# =========================
+import threading
+threading.Thread(target=iniciar_scraper, daemon=True).start()
+
 if __name__ == "__main__":
-    t = threading.Thread(target=iniciar_scraper)
-    t.daemon = True
-    t.start()
-
-    port = int(os.environ.get("PORT", 5000))
+    import os
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
