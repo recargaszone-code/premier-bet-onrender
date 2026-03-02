@@ -2,7 +2,6 @@ import os
 import time
 import traceback
 import threading
-import random
 import re
 import requests
 from flask import Flask, jsonify
@@ -60,13 +59,13 @@ def clicar_mais_tarde(driver, etapa=""):
     except:
         return False
 
-# ========================= SCRAPER =========================
+# ========================= SCRAPER RÁPIDO =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando undetected Chrome v145...")
+            enviar_telegram("🟢 Iniciando undetected Chrome v145 (modo rápido)...")
 
             options = uc.ChromeOptions()
             options.add_argument("--headless=new")
@@ -78,121 +77,102 @@ def iniciar_scraper():
             options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36")
 
             driver = uc.Chrome(version_main=145, options=options)
-            wait = WebDriverWait(driver, 60)   # aumentado pra 60s
+            wait = WebDriverWait(driver, 45)
 
             # 1. ABRIR PÁGINA
             driver.get(URL)
             enviar_telegram("🌐 Página aberta!")
-            time.sleep(20)                     # +5s extras
+            time.sleep(10)                    # ← reduzido
             enviar_print(driver, "📸 1. Página carregada")
 
             # 2. MAIS TARDE INICIAL
             clicar_mais_tarde(driver, "(início)")
-            time.sleep(10)                     # espera extra após clique
+            time.sleep(5)                     # ← reduzido
             enviar_print(driver, "📸 2. Após Mais Tarde inicial")
 
-            # ==================== REMOVER OVERLAY ====================
+            # REMOVER OVERLAY
             try:
                 mask = driver.find_element(By.CSS_SELECTOR, "div.kumulos-background-mask")
                 driver.execute_script("arguments[0].style.display = 'none';", mask)
                 enviar_telegram("✅ Overlay removido")
-                enviar_print(driver, "📸 Overlay removido")
             except:
                 pass
+            time.sleep(2)
 
-            # ==================== LOGIN (AGORA SUPER ROBUSTO) ====================
+            # ==================== LOGIN RÁPIDO ====================
             enviar_telegram("🔑 Tentando login...")
-            enviar_print(driver, "📸 3. Antes de procurar campos de login")
+            enviar_print(driver, "📸 3. Antes do login")
 
-            login_ok = False
             try:
-                # Campo telefone
-                login_input = WebDriverWait(driver, 25).until(
-                    EC.presence_of_element_located((By.NAME, "login"))
-                )
+                # Campo login
+                login_input = WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.NAME, "login")))
                 driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", login_input)
-                time.sleep(2)
+                time.sleep(1)
                 login_input.click()
                 login_input.send_keys(Keys.CONTROL + "a")
                 login_input.send_keys(Keys.BACKSPACE)
                 for char in LOGIN:
                     login_input.send_keys(char)
-                    time.sleep(0.08)
+                    time.sleep(0.05)          # digitação mais rápida
                 enviar_print(driver, "📸 4. Número preenchido")
 
                 # Campo senha
-                pwd = WebDriverWait(driver, 15).until(
-                    EC.presence_of_element_located((By.NAME, "password"))
-                )
+                pwd = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "password")))
                 driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", pwd)
-                time.sleep(2)
+                time.sleep(1)
                 pwd.click()
                 pwd.send_keys(Keys.CONTROL + "a")
                 pwd.send_keys(Keys.BACKSPACE)
                 for char in PASSWORD:
                     pwd.send_keys(char)
-                    time.sleep(0.08)
+                    time.sleep(0.05)
                 enviar_print(driver, "📸 5. Senha preenchida")
 
                 # Botão
-                btn = WebDriverWait(driver, 15).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button.form-button.form-button--primary"))
-                )
+                btn = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.form-button.form-button--primary")))
                 driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-                time.sleep(2)
+                time.sleep(1)
                 try:
                     btn.click()
                 except:
                     driver.execute_script("arguments[0].click();", btn)
 
-                enviar_telegram("✅ Botão Login clicado!")
-                enviar_print(driver, "📸 6. Botão Login clicado")
-                login_ok = True
-                time.sleep(25)
+                enviar_telegram("✅ Login clicado!")
+                enviar_print(driver, "📸 6. Login enviado")
+                time.sleep(12)                # ← bem mais rápido (era 25s)
 
             except Exception as e:
-                enviar_telegram(f"⚠️ Login não apareceu ou erro: {type(e).__name__}")
-                enviar_print(driver, "📸 ERRO no login - pulando para iframe")
-                time.sleep(15)
+                enviar_telegram(f"⚠️ Login pulado: {type(e).__name__}")
+                enviar_print(driver, "📸 Login pulado")
+                time.sleep(8)
 
-            # 7. MAIS TARDE APÓS LOGIN (mesmo se login falhou)
+            # MAIS TARDE APÓS LOGIN
             clicar_mais_tarde(driver, "(após login)")
 
             # ==================== IFRAME ====================
-            iframe_ok = False
             try:
-                iframe = WebDriverWait(driver, 30).until(
+                iframe = WebDriverWait(driver, 15).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.casino-game-launch-iframe__frame"))
                 )
                 driver.switch_to.frame(iframe)
-                enviar_telegram("✅ Entrou no iframe específico")
-                enviar_print(driver, "📸 7. Entrou no iframe")
-                iframe_ok = True
+                enviar_telegram("✅ Entrou no iframe")
+                enviar_print(driver, "📸 7. Dentro do iframe")
             except:
-                enviar_telegram("⚠️ Iframe principal falhou → tentando fallback")
-                enviar_print(driver, "📸 Tentando fallback iframe")
+                enviar_telegram("⚠️ Fallback iframe")
                 iframes = driver.find_elements(By.TAG_NAME, "iframe")
                 if iframes:
                     driver.switch_to.frame(iframes[-1])
-                    enviar_telegram("✅ Entrou no iframe (fallback)")
-                    enviar_print(driver, "📸 7. Entrou no iframe (fallback)")
-                    iframe_ok = True
+                    enviar_print(driver, "📸 7. Iframe fallback")
 
-            # ==================== LOOP HISTÓRICO ====================
+            # ==================== LOOP RÁPIDO (a cada 5s) ====================
             while True:
                 clicar_mais_tarde(driver, "(loop)")
+                time.sleep(1)
 
-                if not iframe_ok:
-                    iframe = WebDriverWait(driver, 15).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.casino-game-launch-iframe__frame"))
-                    )
-                    driver.switch_to.frame(iframe)
-                    iframe_ok = True
-
-                items_wrapper = WebDriverWait(driver, 12).until(
+                # Histórico
+                items_wrapper = WebDriverWait(driver, 8).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "div._itemsWrapper_7l84e_35"))
                 )
-
                 buttons = items_wrapper.find_elements(
                     By.CSS_SELECTOR, "button._container_12jzl_1 span._container_1p5jb_1"
                 )
@@ -208,30 +188,29 @@ def iniciar_scraper():
                 if novos and (not historico or novos != historico):
                     historico = novos
                     lista_str = ", ".join(f"{v:.2f}x" for v in historico[-30:])
-                    msg = f"""*📊 Histórico Aviator PremierBet Atualizado*
+                    msg = f"""*📊 Histórico Aviator Atualizado (rápido)*
 
 [{lista_str}]
 
-**Total:** {len(historico)} rodadas
-**Último:** **{historico[-1]:.2f}x**"""
+Total: **{len(historico)}** | Último: **{historico[-1]:.2f}x**"""
                     enviar_telegram(msg)
-                    enviar_print(driver, "📸 8. Histórico atualizado")
+                    enviar_print(driver, "📸 Histórico atualizado")
 
-                time.sleep(random.uniform(7, 12))
+                time.sleep(5)   # ← EXATAMENTE A CADA 5 SEGUNDOS
 
         except Exception as e:
             erro = traceback.format_exc()
-            enviar_telegram(f"🔥 ERRO CRÍTICO:\n{erro[:700]}")
+            enviar_telegram(f"🔥 ERRO: {type(e).__name__}")
             if driver:
-                enviar_print(driver, "📸 ERRO CRÍTICO")
+                enviar_print(driver, "📸 ERRO")
         finally:
             try:
                 if driver:
                     driver.quit()
             except:
                 pass
-            enviar_telegram("🔄 Reiniciando scraper em 12s...")
-            time.sleep(12)
+            enviar_telegram("🔄 Reiniciando em 8s...")
+            time.sleep(8)
 
 # ========================= API =========================
 @app.route("/api/history")
@@ -244,7 +223,7 @@ def get_last():
 
 @app.route("/")
 def home():
-    return "✅ Scraper Aviator v145 - Login reforçado!"
+    return "✅ Scraper Aviator TURBO (5s) rodando!"
 
 # ========================= START =========================
 if __name__ == "__main__":
