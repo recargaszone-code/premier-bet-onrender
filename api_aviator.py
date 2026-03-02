@@ -10,7 +10,7 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, InvalidSessionIdException
 
 app = Flask(__name__)
 
@@ -45,37 +45,34 @@ def clicar_mais_tarde(driver, etapa=""):
         btn = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.kumulos-action-button.kumulos-action-button-cancel")))
         btn.click()
         enviar_telegram(f"✅ Mais Tarde clicado {etapa}")
-        enviar_print(driver, f"📸 Mais Tarde clicado {etapa}")
+        enviar_print(driver, f"📸 Mais Tarde {etapa}")
         time.sleep(2)
         return True
     except:
         return False
 
-# ========================= SCRAPER ANTI-OOM =========================
+# ========================= SCRAPER ANTI-CRASH =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando Chrome OTIMIZADO (512MB OK)...")
+            enviar_telegram("🟢 Iniciando Chrome ANTI-CRASH (512MB + estabilidade)...")
 
             options = uc.ChromeOptions()
-            # === FLAGS QUE ECONOMIZAM MUITA RAM ===
             options.add_argument("--headless=new")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-setuid-sandbox")
             options.add_argument("--disable-gpu")
             options.add_argument("--disable-software-rasterizer")
             options.add_argument("--disable-extensions")
             options.add_argument("--disable-logging")
             options.add_argument("--log-level=3")
-            options.add_argument("--disable-notifications")
             options.add_argument("--no-first-run")
-            options.add_argument("--no-default-browser-check")
             options.add_argument("--disable-background-networking")
-            options.add_argument("--single-process")           # ECONOMIZA RAM
             options.add_argument("--disable-accelerated-2d-canvas")
-            options.add_argument("--window-size=1280,720")     # menor janela
+            options.add_argument("--window-size=1280,720")
             options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36")
 
             driver = uc.Chrome(version_main=145, options=options)
@@ -111,7 +108,7 @@ def iniciar_scraper():
 
             clicar_mais_tarde(driver, "(após login)")
 
-            # IFRAME (loop eterno - NUNCA reinicia mais)
+            # IFRAME (loop eterno)
             while True:
                 try:
                     iframe = WebDriverWait(driver, 15).until(
@@ -125,7 +122,9 @@ def iniciar_scraper():
                     driver.refresh()
                     time.sleep(10)
 
-            # LOOP HISTÓRICO
+            enviar_telegram("🚀 Monitoramento iniciado (a cada 5s)!")
+
+            # LOOP HISTÓRICO (print SÓ quando muda)
             while True:
                 clicar_mais_tarde(driver, "(loop)")
                 time.sleep(1)
@@ -148,15 +147,17 @@ Total: **{len(historico)}** | Último: **{historico[-1]:.2f}x**"""
 
                 time.sleep(5)
 
+        except InvalidSessionIdException:
+            enviar_telegram("⚠️ Sessão inválida (Chrome morreu) → reiniciando...")
         except Exception as e:
             enviar_telegram(f"🔥 ERRO: {type(e).__name__}")
-            if driver:
-                try: enviar_print(driver, "📸 ERRO")
-                except: pass
         finally:
             try:
-                if driver: driver.quit()
-            except: pass
+                if driver:
+                    driver.quit()
+            except:
+                pass
+            driver = None
             time.sleep(8)
 
 # ========================= API =========================
@@ -165,7 +166,7 @@ def get_history(): return jsonify(historico)
 @app.route("/api/last")
 def get_last(): return jsonify(historico[-1] if historico else None)
 @app.route("/")
-def home(): return "✅ Aviator 512MB OK!"
+def home(): return "✅ Aviator ANTI-CRASH rodando!"
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scraper, daemon=True).start()
