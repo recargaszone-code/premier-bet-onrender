@@ -22,4 +22,5 @@ RUN pip install flask selenium requests
 ENV CHROME_BIN=/usr/bin/chromium
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
-CMD ["python", "app.py"]
+CMD ["python", "api_aviator.py"]
+
