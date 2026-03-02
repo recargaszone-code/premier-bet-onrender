@@ -51,70 +51,67 @@ def clicar_mais_tarde(driver, etapa=""):
     except:
         return False
 
-# ========================= SCRAPER =========================
+# ========================= SCRAPER ANTI-OOM =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando undetected Chrome v145 (ANTI-RESTART TOTAL)...")
+            enviar_telegram("🟢 Iniciando Chrome OTIMIZADO (512MB OK)...")
 
             options = uc.ChromeOptions()
+            # === FLAGS QUE ECONOMIZAM MUITA RAM ===
             options.add_argument("--headless=new")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-blink-features=AutomationControlled")
-            options.add_argument("--window-size=1920,1080")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-software-rasterizer")
+            options.add_argument("--disable-extensions")
+            options.add_argument("--disable-logging")
+            options.add_argument("--log-level=3")
+            options.add_argument("--disable-notifications")
+            options.add_argument("--no-first-run")
+            options.add_argument("--no-default-browser-check")
+            options.add_argument("--disable-background-networking")
+            options.add_argument("--single-process")           # ECONOMIZA RAM
+            options.add_argument("--disable-accelerated-2d-canvas")
+            options.add_argument("--window-size=1280,720")     # menor janela
             options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36")
 
             driver = uc.Chrome(version_main=145, options=options)
             wait = WebDriverWait(driver, 45)
 
             driver.get(URL)
-            enviar_telegram("🌐 Página aberta!")
             time.sleep(8)
             enviar_print(driver, "📸 1. Página carregada")
 
             clicar_mais_tarde(driver, "(início)")
             time.sleep(5)
-            enviar_print(driver, "📸 2. Após Mais Tarde inicial")
+            enviar_print(driver, "📸 2. Após Mais Tarde")
 
-            # REMOVER OVERLAY
-            try:
-                mask = driver.find_element(By.CSS_SELECTOR, "div.kumulos-background-mask")
-                driver.execute_script("arguments[0].style.display = 'none';", mask)
-            except:
-                pass
-            time.sleep(2)
-
-            # ==================== LOGIN INSTANTÂNEO ====================
-            enviar_telegram("🔑 Tentando login...")
-            enviar_print(driver, "📸 3. Antes do login")
-
+            # LOGIN INSTANTÂNEO
+            enviar_telegram("🔑 Login...")
             login_input = wait.until(EC.presence_of_element_located((By.NAME, "login")))
             driver.execute_script("arguments[0].value = '';", login_input)
             login_input.send_keys(LOGIN)
-            enviar_print(driver, "📸 4. Número preenchido (rápido)")
+            enviar_print(driver, "📸 4. Número preenchido")
 
             pwd = wait.until(EC.presence_of_element_located((By.NAME, "password")))
             driver.execute_script("arguments[0].value = '';", pwd)
             pwd.send_keys(PASSWORD)
-            enviar_print(driver, "📸 5. Senha preenchida (rápido)")
+            enviar_print(driver, "📸 5. Senha preenchida")
 
             btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.form-button.form-button--primary")))
-            try:
-                btn.click()
-            except:
-                driver.execute_script("arguments[0].click();", btn)
+            try: btn.click()
+            except: driver.execute_script("arguments[0].click();", btn)
 
             enviar_telegram("✅ 6. Login enviado!")
             enviar_print(driver, "📸 6. Login enviado")
-            time.sleep(25)   # tempo obrigatório pro jogo carregar
+            time.sleep(25)
 
             clicar_mais_tarde(driver, "(após login)")
 
-            # ==================== LOOP DE ESPERA DO IFRAME (NUNCA REINICIA MAIS) ====================
-            enviar_telegram("🎯 Aguardando iframe do Aviator...")
+            # IFRAME (loop eterno - NUNCA reinicia mais)
             while True:
                 try:
                     iframe = WebDriverWait(driver, 15).until(
@@ -125,30 +122,18 @@ def iniciar_scraper():
                     enviar_print(driver, "📸 7. Entrou no iframe")
                     break
                 except:
-                    enviar_telegram("⚠️ Iframe ainda não carregou → refresh automático")
                     driver.refresh()
                     time.sleep(10)
 
-            enviar_telegram("🚀 Iniciando monitoramento do histórico (a cada 5s)!")
-            enviar_print(driver, "📸 8. Monitoramento iniciado")
-
-            # ==================== LOOP HISTÓRICO ====================
+            # LOOP HISTÓRICO
             while True:
                 clicar_mais_tarde(driver, "(loop)")
                 time.sleep(1)
 
-                items_wrapper = WebDriverWait(driver, 8).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "div._itemsWrapper_7l84e_35"))
-                )
-                buttons = items_wrapper.find_elements(By.CSS_SELECTOR, "button._container_12jzl_1 span._container_1p5jb_1")
+                wrapper = WebDriverWait(driver, 8).until(EC.presence_of_element_located((By.CSS_SELECTOR, "div._itemsWrapper_7l84e_35")))
+                buttons = wrapper.find_elements(By.CSS_SELECTOR, "button._container_12jzl_1 span._container_1p5jb_1")
 
-                novos = []
-                for span in buttons:
-                    txt = span.text.strip()
-                    if txt:
-                        match = re.search(r'(\d+\.?\d*)', txt)
-                        if match:
-                            novos.append(float(match.group(1)))
+                novos = [float(re.search(r'(\d+\.?\d*)', span.text.strip()).group(1)) for span in buttons if re.search(r'(\d+\.?\d*)', span.text.strip())]
 
                 if novos and (not historico or novos != historico):
                     historico = novos
@@ -164,35 +149,24 @@ Total: **{len(historico)}** | Último: **{historico[-1]:.2f}x**"""
                 time.sleep(5)
 
         except Exception as e:
-            enviar_telegram(f"🔥 ERRO GRAVE: {type(e).__name__} → reiniciando Chrome")
+            enviar_telegram(f"🔥 ERRO: {type(e).__name__}")
             if driver:
-                try:
-                    enviar_print(driver, "📸 ERRO GRAVE")
-                except:
-                    pass
+                try: enviar_print(driver, "📸 ERRO")
+                except: pass
         finally:
             try:
-                if driver:
-                    driver.quit()
-            except:
-                pass
-            enviar_telegram("🔄 Reiniciando scraper em 8s...")
+                if driver: driver.quit()
+            except: pass
             time.sleep(8)
 
 # ========================= API =========================
 @app.route("/api/history")
-def get_history():
-    return jsonify(historico)
-
+def get_history(): return jsonify(historico)
 @app.route("/api/last")
-def get_last():
-    return jsonify(historico[-1] if historico else None)
-
+def get_last(): return jsonify(historico[-1] if historico else None)
 @app.route("/")
-def home():
-    return "✅ Scraper Aviator ANTI-RESTART rodando!"
+def home(): return "✅ Aviator 512MB OK!"
 
-# ========================= START =========================
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scraper, daemon=True).start()
     port = int(os.environ.get("PORT", 10000))
