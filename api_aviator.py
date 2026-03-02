@@ -11,22 +11,22 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-# ================== CONFIG ==================
+# ================= CONFIG =================
 LOGIN = "857789345"
 PASSWORD = "max123ZICO"
 
-TELEGRAM_BOT_TOKEN = "SEU_BOT_TOKEN"
-TELEGRAM_CHAT_ID = "SEU_CHAT_ID"
+TELEGRAM_BOT_TOKEN = "8742776802:AAHSzD1qTwCqMEOdoW9_pT2l5GfmMBWUZQY"
+TELEGRAM_CHAT_ID = "7427648935"
 
 URL = "https://www.premierbet.co.mz/virtuals/game/aviator-291195"
 
-# ============================================
+# =========================================
 
 app = Flask(__name__)
 historico = []
 driver = None
 
-# ================== TELEGRAM ==================
+# ================= TELEGRAM =================
 def enviar_telegram(msg):
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -39,8 +39,7 @@ def enviar_telegram(msg):
     except Exception as e:
         print("Erro Telegram:", e)
 
-
-# ================== CRIAR DRIVER ==================
+# ================= CHROME DRIVER =================
 def criar_driver():
     options = uc.ChromeOptions()
     options.add_argument("--headless=new")
@@ -50,28 +49,27 @@ def criar_driver():
     options.add_argument("--remote-debugging-port=9222")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--window-size=1366,768")
-    options.binary_location = "/usr/bin/chromium"
+    options.binary_location = "/usr/bin/google-chrome"
 
     return uc.Chrome(options=options)
 
-
-# ================== SCRAPER ==================
+# ================= SCRAPER =================
 def iniciar_scraper():
-    global historico, driver
+    global driver, historico
 
     while True:
         try:
-            print("Iniciando navegador...")
+            enviar_telegram("🟢 Iniciando navegador Chrome headless...")
             driver = criar_driver()
             wait = WebDriverWait(driver, 60)
 
-            print("Abrindo Aviator...")
+            enviar_telegram("🌐 Abrindo página do Aviator...")
             driver.get(URL)
             time.sleep(15)
 
             # ================= LOGIN =================
             try:
-                print("Fazendo login...")
+                enviar_telegram("🔑 Tentando login...")
                 login_input = wait.until(EC.element_to_be_clickable((By.NAME, "login")))
                 login_input.clear()
                 login_input.send_keys(LOGIN)
@@ -80,23 +78,23 @@ def iniciar_scraper():
                 pwd.clear()
                 pwd.send_keys(PASSWORD)
 
-                btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.form-button.form-button--primary")))
+                btn = wait.until(EC.element_to_be_clickable(
+                    (By.CSS_SELECTOR, "button.form-button.form-button--primary")
+                ))
                 btn.click()
-
-                print("Login enviado, aguardando carregar jogo...")
+                enviar_telegram("✅ Login enviado, aguardando carregamento do jogo...")
                 time.sleep(25)
-
             except Exception as e:
-                print("Login não necessário ou erro:", e)
+                enviar_telegram(f"⚠️ Login não necessário ou erro: {e}")
                 time.sleep(20)
 
             # ================= IFRAME =================
-            print("Entrando no iframe do jogo...")
+            enviar_telegram("🖼 Procurando iframe do jogo...")
             iframe = wait.until(EC.presence_of_element_located(
                 (By.CSS_SELECTOR, "iframe.casino-game-launch-iframe__frame")
             ))
             driver.switch_to.frame(iframe)
-            print("Iframe conectado! Scraper ativo.")
+            enviar_telegram("✅ Iframe conectado, scraper ativo!")
 
             ultimo_enviado = None
 
@@ -122,32 +120,29 @@ def iniciar_scraper():
                     if novos:
                         historico = novos
                         ultimo = historico[-1]
-                        print(f"[SCRAPER] Último: {ultimo} | Total: {len(historico)}")
+
+                        enviar_telegram(f"📊 Histórico atualizado (últimos 10): {', '.join(f'{v:.2f}' for v in historico[-10:])}\nÚltimo multiplicador: {ultimo:.2f}x")
 
                         if ultimo_enviado != ultimo:
-                            lista_str = ", ".join(f"{v:.2f}" for v in historico[-20:])
-                            msg = (
-                                f"*Aviator Histórico Atualizado*\n\n"
-                                f"[{lista_str}]\n\n"
-                                f"Último: *{ultimo:.2f}x*\n"
-                                f"Total: *{len(historico)}*"
-                            )
-                            enviar_telegram(msg)
                             ultimo_enviado = ultimo
 
                 except Exception as e:
-                    print("Erro loop scraping:", e)
+                    enviar_telegram(f"❌ Erro no loop scraping: {e}\nTentando reiniciar iframe...")
                     break
 
                 time.sleep(random.uniform(6, 10))
 
         except Exception as e:
-            print("Erro geral, reiniciando driver:", e)
+            enviar_telegram(f"🔥 Erro geral do scraper: {e}\nReiniciando driver...")
+        finally:
+            if driver:
+                try:
+                    driver.quit()
+                except:
+                    pass
+            time.sleep(5)
 
-        time.sleep(10)
-
-
-# ================== API ==================
+# ================= API =================
 @app.route("/api/history", methods=["GET"])
 def get_history():
     return jsonify({
@@ -156,13 +151,11 @@ def get_history():
         "total": len(historico)
     })
 
-
 @app.route("/api/last", methods=["GET"])
 def get_last():
     return jsonify({
         "last": historico[-1] if historico else None
     })
-
 
 @app.route("/api/full", methods=["GET"])
 def get_full():
@@ -170,8 +163,7 @@ def get_full():
         "history": historico
     })
 
-
-# ================== MAIN ==================
+# ================= MAIN =================
 if __name__ == "__main__":
     t = threading.Thread(target=iniciar_scraper)
     t.daemon = True
