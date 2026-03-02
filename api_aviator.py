@@ -1,35 +1,37 @@
 import os
 import time
 import traceback
+import threading
+import random
+import re
 import requests
 from flask import Flask, jsonify
+
+import undetected_chromedriver as uc
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, NoSuchElementException, ElementClickInterceptedException
 
 app = Flask(__name__)
 
-# =========================
-# CREDENCIAIS ANTIGAS (TESTE)
-# =========================
+# ========================= CONFIG =========================
 TELEGRAM_TOKEN = "8742776802:AAHSzD1qTwCqMEOdoW9_pT2l5GfmMBWUZQY"
 TELEGRAM_CHAT_ID = "7427648935"
-
 LOGIN = "857789345"
 PASSWORD = "max123ZICO"
-
 URL = "https://www.premierbet.co.mz/virtuals/game/aviator-291195"
 
 historico = []
 
-# =========================
-# TELEGRAM
-# =========================
 def enviar_telegram(msg):
     try:
         requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-            data={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode":"Markdown"}
+            data={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "Markdown"},
+            timeout=10
         )
     except:
         pass
@@ -44,95 +46,156 @@ def enviar_print(driver, legenda="📸 Screenshot"):
             data={"chat_id": TELEGRAM_CHAT_ID, "caption": legenda}
         )
     except Exception as e:
-        enviar_telegram(f"❌ Erro ao enviar print: {e}")
+        enviar_telegram(f"❌ Erro print: {e}")
 
-# =========================
-# SCRAPER
-# =========================
+def clicar_mais_tarde(driver):
+    try:
+        btn = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.CSS_SELECTOR, "button.kumulos-action-button.kumulos-action-button-cancel"))
+        )
+        btn.click()
+        time.sleep(2)
+    except:
+        pass
+
+# ========================= SCRAPER =========================
 def iniciar_scraper():
     global historico
-
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando navegador Chrome headless...")
+            enviar_telegram("🟢 Iniciando undetected Chrome...")
 
-            chrome_options = Options()
-            chrome_options.add_argument("--headless=new")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1920,1080")
+            options = uc.ChromeOptions()
+            options.add_argument("--headless=new")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-gpu")
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36")
 
-            driver = webdriver.Chrome(options=chrome_options)
+            driver = uc.Chrome(version_main=145, options=options)
+            wait = WebDriverWait(driver, 45)
+
             driver.get(URL)
             enviar_telegram("🌐 Página aberta!")
             time.sleep(15)
-            enviar_print(driver, "📸 Página carregada")
+            enviar_print(driver, "📸 Página inicial carregada")
 
-            # LOGIN
+            clicar_mais_tarde(driver)
+
+            # ==================== REMOVER OVERLAY ====================
             try:
-                login_input = driver.find_element(By.NAME, "login")
+                mask = driver.find_element(By.CSS_SELECTOR, "div.kumulos-background-mask")
+                driver.execute_script("arguments[0].style.display = 'none';", mask)
+                enviar_telegram("✅ Overlay removido")
+            except:
+                pass
+
+            # ==================== LOGIN LENTO ====================
+            try:
+                enviar_telegram("🔑 Tentando login...")
+                # Login
+                login_input = wait.until(EC.element_to_be_clickable((By.NAME, "login")))
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", login_input)
+                time.sleep(1.5)
+                login_input.click()
                 login_input.clear()
-                login_input.send_keys(LOGIN)
+                for char in LOGIN:
+                    login_input.send_keys(char)
+                    time.sleep(0.08)
 
-                pwd_input = driver.find_element(By.NAME, "password")
-                pwd_input.clear()
-                pwd_input.send_keys(PASSWORD)
+                # Senha
+                pwd = wait.until(EC.element_to_be_clickable((By.NAME, "password")))
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", pwd)
+                time.sleep(1.5)
+                pwd.click()
+                pwd.clear()
+                for char in PASSWORD:
+                    pwd.send_keys(char)
+                    time.sleep(0.08)
 
-                btn = driver.find_element(By.CSS_SELECTOR, "button.form-button.form-button--primary")
-                btn.click()
+                # Botão
+                btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.form-button.form-button--primary")))
+                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                time.sleep(1.5)
+                try:
+                    btn.click()
+                except ElementClickInterceptedException:
+                    driver.execute_script("arguments[0].click();", btn)
+
                 enviar_telegram("✅ Login enviado!")
                 time.sleep(25)
+            except Exception as e:
+                enviar_telegram(f"⚠️ Login pulado: {type(e).__name__}")
+                time.sleep(25)
+
+            clicar_mais_tarde(driver)
+
+            # ==================== IFRAME ====================
+            try:
+                iframe = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.casino-game-launch-iframe__frame")))
+                driver.switch_to.frame(iframe)
+                enviar_telegram("✅ Entrou no iframe específico")
             except:
-                enviar_telegram("⚠️ Login não necessário ou falhou!")
+                # fallback
+                iframes = driver.find_elements(By.TAG_NAME, "iframe")
+                if iframes:
+                    driver.switch_to.frame(iframes[-1])
+                    enviar_telegram("✅ Entrou no último iframe (fallback)")
+                else:
+                    raise Exception("Iframe não encontrado")
 
-            # IFRAME
-            iframes = driver.find_elements(By.TAG_NAME, "iframe")
-            enviar_telegram(f"🎯 Iframes encontrados: {len(iframes)}")
-            if len(iframes) == 0:
-                raise Exception("Nenhum iframe encontrado")
-            driver.switch_to.frame(iframes[-1])
-            enviar_telegram("✅ Entrou no iframe do Aviator")
             time.sleep(10)
-            enviar_print(driver, "🎮 Dentro do iframe")
+            enviar_print(driver, "🎮 Dentro do jogo")
 
-            # LOOP HISTÓRICO
-            ultimo_enviado = None
+            # ==================== LOOP HISTÓRICO ====================
             while True:
-                elementos = driver.find_elements(By.CSS_SELECTOR, "div._itemsWrapper_7l84e_35 span._container_1p5jb_1")
-                novos = []
-                for el in elementos:
-                    txt = el.text.replace("x","").strip()
-                    if txt:
-                        try:
-                            novos.append(float(txt))
-                        except:
-                            continue
+                clicar_mais_tarde(driver)
 
-                if novos and novos != historico:
-                    historico = novos[:50]
-                    enviar_telegram(f"📊 Histórico atualizado (últimos 10): {historico[:10]}")
+                # Captura histórico
+                wrapper = WebDriverWait(driver, 12).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "div._itemsWrapper_7l84e_35"))
+                )
+                spans = wrapper.find_elements(By.CSS_SELECTOR, "button._container_12jzl_1 span._container_1p5jb_1")
+
+                novos = []
+                for span in spans:
+                    txt = span.text.strip()
+                    if txt:
+                        match = re.search(r'(\d+\.?\d*)', txt)
+                        if match:
+                            novos.append(float(match.group(1)))
+
+                if novos and (not historico or novos != historico):
+                    historico = novos[:60]
+                    lista_str = ", ".join(f"{v:.2f}x" for v in historico[-30:])
+                    msg = f"""*📊 Histórico Aviator PremierBet Atualizado*
+
+[{lista_str}]
+
+**Total:** {len(historico)} rodadas
+**Último:** **{historico[-1]:.2f}x**"""
+                    enviar_telegram(msg)
                     enviar_print(driver, "📸 Histórico atualizado")
 
-                time.sleep(6)
+                time.sleep(random.uniform(7, 12))
 
         except Exception as e:
             erro = traceback.format_exc()
-            enviar_telegram(f"🔥 ERRO NO SCRAPER:\n{erro}")
-            time.sleep(10)
-
+            enviar_telegram(f"🔥 ERRO NO SCRAPER:\n{erro[:800]}")
+            time.sleep(8)
         finally:
             try:
-                driver.quit()
+                if driver:
+                    driver.quit()
             except:
                 pass
-            enviar_telegram("🔄 Reiniciando scraper em 10s...")
-            time.sleep(10)
+            enviar_telegram("🔄 Reiniciando scraper em 12s...")
+            time.sleep(12)
 
-# =========================
-# API
-# =========================
+# ========================= API =========================
 @app.route("/api/history")
 def get_history():
     return jsonify(historico)
@@ -143,15 +206,10 @@ def get_last():
 
 @app.route("/")
 def home():
-    return "Scraper Aviator rodando!"
+    return "✅ Scraper Aviator UC rodando firme!"
 
-# =========================
-# THREAD SCRAPER
-# =========================
-import threading
-threading.Thread(target=iniciar_scraper, daemon=True).start()
-
+# ========================= START =========================
 if __name__ == "__main__":
-    import os
+    threading.Thread(target=iniciar_scraper, daemon=True).start()
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
