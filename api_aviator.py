@@ -32,15 +32,16 @@ def enviar_telegram(msg):
     except:
         pass
 
-# ========================= SCRAPER CORRIGIDO =========================
+# ========================= SCRAPER CORRIGIDO (Railway) =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando scraper (Auto Chrome Detect - Railway)...")
+            enviar_telegram("🟢 Iniciando scraper (Chrome Railway Fix)...")
 
             options = uc.ChromeOptions()
+            options.binary_location = "/usr/bin/google-chrome"   # ← LINHA QUE RESOLVE O ERRO
             options.add_argument("--headless=new")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
@@ -51,8 +52,7 @@ def iniciar_scraper():
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
             options.add_experimental_option('useAutomationExtension', False)
 
-            # === LINHA CORRIGIDA (sem version_main) ===
-            driver = uc.Chrome(options=options)
+            driver = uc.Chrome(options=options)   # sem version_main
 
             wait = WebDriverWait(driver, 60)
 
@@ -119,7 +119,7 @@ Total: **{len(historico)}** | Último: **{historico[-1]:.2f}x**"""
                 time.sleep(25)
 
         except TimeoutException:
-            enviar_telegram("⏳ Timeout - tentando novamente o passo atual...")
+            enviar_telegram("⏳ Timeout - tentando novamente...")
             time.sleep(15)
         except Exception as e:
             enviar_telegram(f"🔥 ERRO: {type(e).__name__} → reiniciando em 20s")
@@ -137,7 +137,7 @@ def get_history(): return jsonify(historico)
 @app.route("/api/last")
 def get_last(): return jsonify(historico[-1] if historico else None)
 @app.route("/")
-def home(): return "✅ Aviator Railway CORRIGIDO rodando!"
+def home(): return "✅ Aviator Railway FIXADO rodando!"
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scraper, daemon=True).start()
