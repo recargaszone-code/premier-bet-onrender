@@ -35,13 +35,13 @@ def enviar_telegram(msg):
     except:
         pass
 
-# ========================= SCRAPER ESTÁVEL (Selenium + webdriver-manager) =========================
+# ========================= SCRAPER ESTÁVEL =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando scraper ESTÁVEL (Selenium Railway)...")
+            enviar_telegram("🟢 Iniciando scraper ESTÁVEL no Railway...")
 
             chrome_options = Options()
             chrome_options.add_argument("--headless=new")
@@ -65,7 +65,7 @@ def iniciar_scraper():
                 btn.click()
                 enviar_telegram("✅ Mais Tarde clicado")
             except TimeoutException:
-                enviar_telegram("⚠️ Mais Tarde não apareceu (continuando)")
+                enviar_telegram("⚠️ Mais Tarde não apareceu")
             time.sleep(25)
 
             # LOGIN
