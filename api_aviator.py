@@ -32,45 +32,43 @@ def enviar_telegram(msg):
     except:
         pass
 
-# ========================= SCRAPER CORRIGIDO (Railway) =========================
+# ========================= SCRAPER =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando scraper (Chrome Railway Fix)...")
+            enviar_telegram("🟢 Iniciando scraper Railway (Chrome instalado)...")
 
             options = uc.ChromeOptions()
-            options.binary_location = "/usr/bin/google-chrome"   # ← LINHA QUE RESOLVE O ERRO
+            options.binary_location = "/usr/bin/google-chrome"   # ← caminho oficial
             options.add_argument("--headless=new")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-setuid-sandbox")
             options.add_argument("--disable-gpu")
             options.add_argument("--window-size=1280,720")
             options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
             options.add_experimental_option('useAutomationExtension', False)
 
-            driver = uc.Chrome(options=options)   # sem version_main
+            driver = uc.Chrome(options=options)
 
             wait = WebDriverWait(driver, 60)
 
-            # PASSO 1
             driver.get(URL)
             enviar_telegram("🌐 Página aberta - aguardando 25s")
             time.sleep(25)
 
-            # PASSO 2 - Mais Tarde
+            # Mais Tarde
             try:
                 btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.kumulos-action-button.kumulos-action-button-cancel")))
                 btn.click()
                 enviar_telegram("✅ Mais Tarde clicado")
             except TimeoutException:
-                enviar_telegram("⚠️ Mais Tarde não apareceu (continuando)")
+                enviar_telegram("⚠️ Mais Tarde não apareceu")
             time.sleep(25)
 
-            # PASSO 3 - LOGIN
+            # LOGIN
             enviar_telegram("🔑 Tentando login...")
             login_input = wait.until(EC.presence_of_element_located((By.NAME, "login")))
             driver.execute_script("arguments[0].value = '';", login_input)
@@ -89,7 +87,7 @@ def iniciar_scraper():
             enviar_telegram("✅ 6. Login enviado!")
             time.sleep(35)
 
-            # PASSO 4 - IFRAME
+            # IFRAME
             enviar_telegram("🎯 Aguardando iframe...")
             iframe = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.casino-game-launch-iframe__frame")))
             driver.switch_to.frame(iframe)
@@ -137,7 +135,7 @@ def get_history(): return jsonify(historico)
 @app.route("/api/last")
 def get_last(): return jsonify(historico[-1] if historico else None)
 @app.route("/")
-def home(): return "✅ Aviator Railway FIXADO rodando!"
+def home(): return "✅ Aviator Railway 100% OK!"
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scraper, daemon=True).start()
