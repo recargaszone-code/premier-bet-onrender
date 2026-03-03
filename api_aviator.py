@@ -9,6 +9,7 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 
 app = Flask(__name__)
 
@@ -23,18 +24,21 @@ historico = []
 
 def enviar_telegram(msg):
     try:
-        requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                      data={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "Markdown"}, timeout=10)
-    except:
-        pass
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+            data={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "Markdown"},
+            timeout=15
+        )
+    except Exception as e:
+        print(f"ERRO TELEGRAM: {e}")  # só pra debug no Railway log
 
-# ========================= SCRAPER ANTI-CLOUDFRONT =========================
+# ========================= SCRAPER ANTI-TIMEOUT =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando Stealth Anti-CloudFront (25s por passo)...")
+            enviar_telegram("🟢 Iniciando scraper ANTI-TIMEOUT (Railway)...")
 
             options = uc.ChromeOptions()
             options.add_argument("--headless=new")
@@ -42,60 +46,49 @@ def iniciar_scraper():
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--disable-setuid-sandbox")
             options.add_argument("--disable-gpu")
-            options.add_argument("--disable-extensions")
-            options.add_argument("--disable-logging")
-            options.add_argument("--log-level=3")
             options.add_argument("--window-size=1280,720")
             options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36")
-
-            # === STEALTH MÁXIMO CONTRA CLOUDFRONT ===
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
             options.add_experimental_option('useAutomationExtension', False)
-            options.add_argument("--disable-blink-features=AutomationControlled")
 
             driver = uc.Chrome(version_main=145, options=options)
+            wait = WebDriverWait(driver, 60)  # 60 segundos de espera máxima
 
-            # Esconde que é Selenium
-            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
-            wait = WebDriverWait(driver, 45)
-
-            # PASSO 1 - ABRIR PÁGINA
+            # PASSO 1
             driver.get(URL)
-            enviar_telegram("🌐 Página aberta")
+            enviar_telegram("🌐 Página aberta - aguardando 25s")
             time.sleep(25)
 
-            # PASSO 2 - MAIS TARDE
+            # PASSO 2 - Mais Tarde
             try:
                 btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.kumulos-action-button.kumulos-action-button-cancel")))
                 btn.click()
                 enviar_telegram("✅ Mais Tarde clicado")
-            except:
-                pass
+            except TimeoutException:
+                enviar_telegram("⚠️ Mais Tarde não apareceu (continuando)")
             time.sleep(25)
 
-            # PASSO 3 - LOGIN (bem espaçado)
-            enviar_telegram("🔑 Iniciando login...")
-            time.sleep(10)
-
+            # PASSO 3 - LOGIN
+            enviar_telegram("🔑 Tentando login...")
             login_input = wait.until(EC.presence_of_element_located((By.NAME, "login")))
             driver.execute_script("arguments[0].value = '';", login_input)
             login_input.send_keys(LOGIN)
-            time.sleep(15)
+            enviar_telegram("📌 Número preenchido")
+            time.sleep(20)
 
             pwd = wait.until(EC.presence_of_element_located((By.NAME, "password")))
             driver.execute_script("arguments[0].value = '';", pwd)
             pwd.send_keys(PASSWORD)
-            time.sleep(15)
+            enviar_telegram("📌 Senha preenchida")
+            time.sleep(20)
 
             btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.form-button.form-button--primary")))
             btn.click()
-            enviar_telegram("✅ Login enviado")
-            time.sleep(30)   # tempo crítico pro jogo carregar
+            enviar_telegram("✅ 6. Login enviado!")
+            time.sleep(35)
 
-            # PASSO 4 - IFRAME (sem loop agressivo)
+            # PASSO 4 - IFRAME
             enviar_telegram("🎯 Aguardando iframe...")
-            time.sleep(25)
             iframe = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.casino-game-launch-iframe__frame")))
             driver.switch_to.frame(iframe)
             enviar_telegram("✅ 7. Entrou no iframe!")
@@ -103,7 +96,7 @@ def iniciar_scraper():
 
             enviar_telegram("🚀 Monitoramento iniciado (a cada 25s)")
 
-            # LOOP HISTÓRICO (25 SEGUNDOS)
+            # LOOP HISTÓRICO
             while True:
                 wrapper = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div._itemsWrapper_7l84e_35")))
                 buttons = wrapper.find_elements(By.CSS_SELECTOR, "button._container_12jzl_1 span._container_1p5jb_1")
@@ -123,15 +116,18 @@ Total: **{len(historico)}** | Último: **{historico[-1]:.2f}x**"""
 
                 time.sleep(25)
 
+        except TimeoutException as e:
+            enviar_telegram(f"⏳ TIMEOUT - tentando novamente o passo atual...")
+            time.sleep(15)  # espera e continua no mesmo navegador
         except Exception as e:
-            enviar_telegram(f"⚠️ Erro: {type(e).__name__} (reiniciando em 20s)")
+            enviar_telegram(f"🔥 ERRO CRÍTICO: {type(e).__name__} → reiniciando em 20s")
+            time.sleep(20)
         finally:
             try:
                 if driver:
                     driver.quit()
             except:
                 pass
-            time.sleep(20)
 
 # ========================= API =========================
 @app.route("/api/history")
@@ -139,7 +135,7 @@ def get_history(): return jsonify(historico)
 @app.route("/api/last")
 def get_last(): return jsonify(historico[-1] if historico else None)
 @app.route("/")
-def home(): return "✅ Aviator Railway + Anti-CloudFront rodando!"
+def home(): return "✅ Aviator Railway ANTI-TIMEOUT rodando!"
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scraper, daemon=True).start()
