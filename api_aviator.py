@@ -32,16 +32,15 @@ def enviar_telegram(msg):
     except:
         pass
 
-# ========================= SCRAPER =========================
+# ========================= SCRAPER ROBUSTO (multi-path) =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando scraper Railway (Chrome instalado)...")
+            enviar_telegram("🟢 Iniciando scraper Railway (multi-path Chrome)...")
 
             options = uc.ChromeOptions()
-            options.binary_location = "/usr/bin/google-chrome"   # ← caminho oficial
             options.add_argument("--headless=new")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
@@ -51,7 +50,26 @@ def iniciar_scraper():
             options.add_experimental_option("excludeSwitches", ["enable-automation"])
             options.add_experimental_option('useAutomationExtension', False)
 
-            driver = uc.Chrome(options=options)
+            # TENTA VÁRIOS CAMINHOS DO CHROME (Railway)
+            chrome_paths = [
+                "/usr/bin/google-chrome",
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
+                "/opt/google/chrome/chrome"
+            ]
+
+            success = False
+            for path in chrome_paths:
+                if os.path.exists(path):
+                    options.binary_location = path
+                    enviar_telegram(f"✅ Chrome encontrado em: {path}")
+                    driver = uc.Chrome(options=options)
+                    success = True
+                    break
+
+            if not success:
+                enviar_telegram("❌ Nenhum Chrome encontrado! Usando default...")
+                driver = uc.Chrome(options=options)
 
             wait = WebDriverWait(driver, 60)
 
@@ -135,7 +153,7 @@ def get_history(): return jsonify(historico)
 @app.route("/api/last")
 def get_last(): return jsonify(historico[-1] if historico else None)
 @app.route("/")
-def home(): return "✅ Aviator Railway 100% OK!"
+def home(): return "✅ Aviator Railway MULTI-PATH rodando!"
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scraper, daemon=True).start()
