@@ -5,11 +5,14 @@ import re
 import requests
 from flask import Flask, jsonify
 
-import undetected_chromedriver as uc
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+from webdriver_manager.chrome import ChromeDriverManager
 
 app = Flask(__name__)
 
@@ -32,45 +35,24 @@ def enviar_telegram(msg):
     except:
         pass
 
-# ========================= SCRAPER ROBUSTO (multi-path) =========================
+# ========================= SCRAPER ESTÁVEL (Selenium + webdriver-manager) =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando scraper Railway (multi-path Chrome)...")
+            enviar_telegram("🟢 Iniciando scraper ESTÁVEL (Selenium Railway)...")
 
-            options = uc.ChromeOptions()
-            options.add_argument("--headless=new")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--window-size=1280,720")
-            options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option('useAutomationExtension', False)
+            chrome_options = Options()
+            chrome_options.add_argument("--headless=new")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1280,720")
+            chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
 
-            # TENTA VÁRIOS CAMINHOS DO CHROME (Railway)
-            chrome_paths = [
-                "/usr/bin/google-chrome",
-                "/usr/bin/chromium",
-                "/usr/bin/chromium-browser",
-                "/opt/google/chrome/chrome"
-            ]
-
-            success = False
-            for path in chrome_paths:
-                if os.path.exists(path):
-                    options.binary_location = path
-                    enviar_telegram(f"✅ Chrome encontrado em: {path}")
-                    driver = uc.Chrome(options=options)
-                    success = True
-                    break
-
-            if not success:
-                enviar_telegram("❌ Nenhum Chrome encontrado! Usando default...")
-                driver = uc.Chrome(options=options)
-
+            service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=chrome_options)
             wait = WebDriverWait(driver, 60)
 
             driver.get(URL)
@@ -83,7 +65,7 @@ def iniciar_scraper():
                 btn.click()
                 enviar_telegram("✅ Mais Tarde clicado")
             except TimeoutException:
-                enviar_telegram("⚠️ Mais Tarde não apareceu")
+                enviar_telegram("⚠️ Mais Tarde não apareceu (continuando)")
             time.sleep(25)
 
             # LOGIN
@@ -153,7 +135,7 @@ def get_history(): return jsonify(historico)
 @app.route("/api/last")
 def get_last(): return jsonify(historico[-1] if historico else None)
 @app.route("/")
-def home(): return "✅ Aviator Railway MULTI-PATH rodando!"
+def home(): return "✅ Aviator Railway ESTÁVEL rodando!"
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scraper, daemon=True).start()
