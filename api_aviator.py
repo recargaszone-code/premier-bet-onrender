@@ -47,13 +47,13 @@ def enviar_print(driver, legenda="📸 Screenshot"):
     except:
         pass
 
-# ========================= SCRAPER ESTÁVEL COM PRINTS =========================
+# ========================= SCRAPER COM PRINTS EM CADA PASSO =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando scraper ESTÁVEL com prints em cada passo...")
+            enviar_telegram("🟢 Iniciando scraper com prints em todos os passos...")
 
             chrome_options = Options()
             chrome_options.add_argument("--headless=new")
@@ -65,15 +65,15 @@ def iniciar_scraper():
 
             service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=chrome_options)
-            wait = WebDriverWait(driver, 60)
+            wait = WebDriverWait(driver, 70)
 
-            # PASSO 1 - Página aberta
+            # PASSO 1
             driver.get(URL)
             enviar_telegram("🌐 1. Página aberta")
             enviar_print(driver, "📸 1. Página carregada")
             time.sleep(25)
 
-            # PASSO 2 - Mais Tarde
+            # PASSO 2
             try:
                 btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.kumulos-action-button.kumulos-action-button-cancel")))
                 btn.click()
@@ -83,7 +83,7 @@ def iniciar_scraper():
                 enviar_telegram("⚠️ 2. Mais Tarde não apareceu")
             time.sleep(25)
 
-            # PASSO 3 - Login
+            # PASSO 3
             enviar_telegram("🔑 3. Tentando login...")
             enviar_print(driver, "📸 3. Antes do login")
 
@@ -107,7 +107,7 @@ def iniciar_scraper():
             enviar_print(driver, "📸 6. Login enviado")
             time.sleep(35)
 
-            # PASSO 7 - Iframe
+            # PASSO 7
             enviar_telegram("🎯 7. Aguardando iframe...")
             iframe = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.casino-game-launch-iframe__frame")))
             driver.switch_to.frame(iframe)
@@ -143,7 +143,7 @@ Total: **{len(historico)}** | Último: **{historico[-1]:.2f}x**"""
             enviar_telegram("⏳ Timeout - tentando novamente...")
             time.sleep(15)
         except Exception as e:
-            enviar_telegram(f"🔥 ERRO: {type(e).__name__} → reiniciando em 20s")
+            enviar_telegram(f"🔥 ERRO: {type(e).__name__} → reiniciando scraper em 20s")
             time.sleep(20)
         finally:
             try:
@@ -152,13 +152,13 @@ Total: **{len(historico)}** | Último: **{historico[-1]:.2f}x**"""
             except:
                 pass
 
-# ========================= API =========================
+# ========================= API (sempre viva) =========================
 @app.route("/api/history")
 def get_history(): return jsonify(historico)
 @app.route("/api/last")
 def get_last(): return jsonify(historico[-1] if historico else None)
 @app.route("/")
-def home(): return "✅ Aviator com Prints em todos os passos rodando!"
+def home(): return "✅ Aviator com prints em todos os passos rodando!"
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scraper, daemon=True).start()
