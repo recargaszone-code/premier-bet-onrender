@@ -21,7 +21,7 @@ TELEGRAM_TOKEN = "8742776802:AAHSzD1qTwCqMEOdoW9_pT2l5GfmMBWUZQY"
 TELEGRAM_CHAT_ID = "7427648935"
 LOGIN = "857789345"
 PASSWORD = "max123ZICO"
-URL = "https://www.premierbet.co.mz/virtuals/game/aviator-291195"
+URL = "https://www.elephantbet.co.mz/en/aviator/"
 
 historico = []
 
@@ -47,89 +47,101 @@ def enviar_print(driver, legenda="📸 Screenshot"):
     except:
         pass
 
-# ========================= SCRAPER COM PRINTS EM CADA PASSO =========================
+# ========================= SCRAPER ELEPHANT BET COM PRINTS =========================
 def iniciar_scraper():
     global historico
     while True:
         driver = None
         try:
-            enviar_telegram("🟢 Iniciando scraper com prints em todos os passos...")
+            enviar_telegram("🟢 Iniciando Elephant Bet Aviator com prints...")
 
             chrome_options = Options()
             chrome_options.add_argument("--headless=new")
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1280,720")
+            chrome_options.add_argument("--window-size=1366,768")
             chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
 
             service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=chrome_options)
-            wait = WebDriverWait(driver, 70)
+            wait = WebDriverWait(driver, 45)
 
             # PASSO 1
             driver.get(URL)
             enviar_telegram("🌐 1. Página aberta")
             enviar_print(driver, "📸 1. Página carregada")
-            time.sleep(25)
+            time.sleep(15)
 
-            # PASSO 2
+            # PASSO 2 - Fechar OneSignal
             try:
-                btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.kumulos-action-button.kumulos-action-button-cancel")))
-                btn.click()
-                enviar_telegram("✅ 2. Mais Tarde clicado")
-                enviar_print(driver, "📸 2. Mais Tarde clicado")
-            except TimeoutException:
-                enviar_telegram("⚠️ 2. Mais Tarde não apareceu")
-            time.sleep(25)
+                no_btn = wait.until(EC.element_to_be_clickable((By.ID, "onesignal-slidedown-cancel-button")))
+                no_btn.click()
+                enviar_telegram("✅ 2. Botão OneSignal 'NÃO' clicado")
+                enviar_print(driver, "📸 2. OneSignal fechado")
+            except:
+                enviar_telegram("⚠️ 2. OneSignal não apareceu")
+            time.sleep(8)
 
-            # PASSO 3
+            # PASSO 3 - LOGIN
             enviar_telegram("🔑 3. Tentando login...")
             enviar_print(driver, "📸 3. Antes do login")
 
-            login_input = wait.until(EC.presence_of_element_located((By.NAME, "login")))
-            driver.execute_script("arguments[0].value = '';", login_input)
-            login_input.send_keys(LOGIN)
-            enviar_telegram("📌 4. Número preenchido")
-            enviar_print(driver, "📸 4. Número preenchido")
-            time.sleep(20)
+            username = wait.until(EC.element_to_be_clickable((By.ID, "username-login-form-oneline")))
+            username.clear()
+            for char in LOGIN:
+                username.send_keys(char)
+                time.sleep(0.08)
+            enviar_telegram("📌 4. Usuário preenchido")
+            enviar_print(driver, "📸 4. Usuário preenchido")
+            time.sleep(8)
 
-            pwd = wait.until(EC.presence_of_element_located((By.NAME, "password")))
-            driver.execute_script("arguments[0].value = '';", pwd)
-            pwd.send_keys(PASSWORD)
+            pwd = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'input.bto-form-control-password[name="password"][type="password"]')))
+            pwd.clear()
+            for char in PASSWORD:
+                pwd.send_keys(char)
+                time.sleep(0.08)
             enviar_telegram("📌 5. Senha preenchida")
             enviar_print(driver, "📸 5. Senha preenchida")
-            time.sleep(20)
+            time.sleep(8)
 
-            btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.form-button.form-button--primary")))
+            btn = wait.until(EC.element_to_be_clickable((By.ID, "login-form-oneline")))
             btn.click()
             enviar_telegram("✅ 6. Login enviado!")
             enviar_print(driver, "📸 6. Login enviado")
-            time.sleep(35)
+            time.sleep(15)
 
-            # PASSO 7
-            enviar_telegram("🎯 7. Aguardando iframe...")
-            iframe = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.casino-game-launch-iframe__frame")))
+            # PASSO 7 - IFRAME
+            iframe = wait.until(EC.presence_of_element_located((By.ID, "game_loader")))
             driver.switch_to.frame(iframe)
-            enviar_telegram("✅ 7. Entrou no iframe!")
-            enviar_print(driver, "📸 7. Entrou no iframe")
-            time.sleep(25)
+            enviar_telegram("✅ 7. Entrou no iframe game_loader")
+            enviar_print(driver, "📸 7. Dentro do iframe")
+            time.sleep(12)
 
-            enviar_telegram("🚀 8. Monitoramento iniciado (a cada 25s)")
-            enviar_print(driver, "📸 8. Monitoramento iniciado")
+            enviar_telegram("🚀 8. Monitoramento iniciado (a cada 10s)")
 
             # LOOP HISTÓRICO
             while True:
-                wrapper = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div._itemsWrapper_7l84e_35")))
-                buttons = wrapper.find_elements(By.CSS_SELECTOR, "button._container_12jzl_1 span._container_1p5jb_1")
+                payouts_block = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "div.payouts-block"))
+                )
 
-                novos = [float(re.search(r'(\d+\.?\d*)', span.text.strip()).group(1))
-                         for span in buttons if re.search(r'(\d+\.?\d*)', span.text.strip())]
+                elements = payouts_block.find_elements(
+                    By.CSS_SELECTOR, "div.payout.ng-star-inserted[appcoloredmultiplier], div.payout"
+                )
+
+                novos = []
+                for el in elements:
+                    txt = el.text.strip()
+                    if txt:
+                        match = re.search(r'(\d+\.?\d*)x?', txt, re.IGNORECASE)
+                        if match:
+                            novos.append(float(match.group(1)))
 
                 if novos and (not historico or novos != historico):
                     historico = novos
                     lista_str = ", ".join(f"{v:.2f}x" for v in historico[-30:])
-                    msg = f"""*📊 Histórico Aviator Atualizado*
+                    msg = f"""*📊 Histórico Aviator Elephant Bet Atualizado*
 
 [{lista_str}]
 
@@ -137,14 +149,11 @@ Total: **{len(historico)}** | Último: **{historico[-1]:.2f}x**"""
                     enviar_telegram(msg)
                     enviar_print(driver, "📸 Histórico atualizado")
 
-                time.sleep(25)
+                time.sleep(10)
 
-        except TimeoutException:
-            enviar_telegram("⏳ Timeout - tentando novamente...")
-            time.sleep(15)
         except Exception as e:
-            enviar_telegram(f"🔥 ERRO: {type(e).__name__} → reiniciando scraper em 20s")
-            time.sleep(20)
+            enviar_telegram(f"🔥 ERRO: {type(e).__name__} → reiniciando em 15s")
+            time.sleep(15)
         finally:
             try:
                 if driver:
@@ -152,13 +161,13 @@ Total: **{len(historico)}** | Último: **{historico[-1]:.2f}x**"""
             except:
                 pass
 
-# ========================= API (sempre viva) =========================
+# ========================= API =========================
 @app.route("/api/history")
 def get_history(): return jsonify(historico)
 @app.route("/api/last")
 def get_last(): return jsonify(historico[-1] if historico else None)
 @app.route("/")
-def home(): return "✅ Aviator com prints em todos os passos rodando!"
+def home(): return "✅ Elephant Bet Aviator com prints rodando!"
 
 if __name__ == "__main__":
     threading.Thread(target=iniciar_scraper, daemon=True).start()
